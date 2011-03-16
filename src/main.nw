@@ -1,0 +1,391 @@
+% -*- mode: Noweb; noweb-code-mode: c-mode -*-
+
+% This is a Noweb file describing and providing the implementation of
+% a code for performing needlet analysis on maps. It takes as input a
+% map in FITS format and produces a set of FITS maps, each containing
+% one of the needlet components.
+%
+% Author: Maurizio Tomasi, 2011
+
+\documentclass[a4paper,10pt,twoside]{article}
+\usepackage{a4wide}
+\usepackage{afterpage}
+\usepackage{amsmath}
+\usepackage{noweb}
+\usepackage{fancyhdr}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ccaption}
+\usepackage{textcomp}
+\usepackage{titlesec}
+\usepackage{mathpazo}
+\usepackage[round]{natbib}
+
+\noweboptions{externalindex}
+
+% Command used to indicate a section
+\newcommand{\sectmark}{\S\ }
+
+\titleformat{\section}[block]
+  {\centering\normalfont\bfseries}
+  {\sectmark\thesection.}{.5em}{}
+\titleformat{\subsection}[runin]
+  {\normalfont\bfseries}
+  {\thesubsection.}{.5em}{}[. ]
+\titleformat{\subsubsection}[runin]
+  {\normalfont\bfseries}
+  {}{.2em}{}[. ]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\sectionmark}[1]{%
+  \markright{\thesection.\ #1}}
+\fancyhf{}
+\fancyhead[L,RO]{\bfseries\thepage}
+\fancyhead[LO]{\bfseries\rightmark}
+\fancyhead[RE]{\bfseries Needlet Analysis of Healpix Maps}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\ud}{\mathrm{d}}
+
+\captionnamefont{\small\bfseries}
+\captiontitlefont{\small\itshape}
+
+\hypersetup{pdftitle={Needlet Analysis of Healpix Maps},
+pdfauthor=Maurizio Tomasi,
+pdfsubject={Commented implementation of a C program to analyse Healpix Maps with needlets},
+pdfkeywords={CMB {data analysis} {needlets} {Healpix} {harmonic analysis}},
+pdfborder={0 0 0}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\bibliographystyle{plainnat}
+
+\title{Needlet Analysis of Healpix Maps}
+\author{M.~Tomasi}
+\maketitle
+
+\begin{abstract}
+  In this document I describe the implementation of a C program which
+  analyses FITS maps using needlet decomposition. It runs from the
+  command line and accepts as input a FITS file containing the map to
+  be analysed. The program outputs a set of maps, each representing
+  one needlet component of the input map.
+
+  The short introduction to the theory of the needlets I provide here
+  follows closely the nice article by
+  \citet{2008MarinucciNeedletsAndCMB}.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+\begin{figure}[tbf]
+  \centering
+  \includegraphics[width=\textwidth]{window-function-plot.pdf}
+  \caption{\label{fig:windowFunction} Shape of
+    $b\bigl(\ell/B^j\bigr)$, the so-called ``needlet window
+    function'', for two values of $B$: the continuous line has $B =
+    2.50$, while the dotted line has $B = 2.73$. The window function
+    is to be multiplied by the $a_{\ell m}$ coefficients of a map to
+    get its $j$-th needlet map. Since for every $j$ the window
+    function is nonzero, it is clear that needlets pick only a limited
+    subrange of the harmonic space. The parameter $B$ can be varied in
+    order to broaden or sharpen the range of $\ell$ included in each
+    map.}
+\end{figure}
+\afterpage{\clearpage}
+
+In this document I implement a C program which performs needlet
+analysis of sky maps. Needlets have been introduced by
+\citet{2006NarcowichNeedlets} as a powerful tool for the analysis of
+spherical random fields. They can be seen as the analogous of wavelets
+over a $\mathbb{S}^n$ field ($n$-dimensional sphere), as they
+implement a way of decomposing signals into a set of functions (called
+``needlets'') which are well localized both in pixel and harmonic
+space. The most important result in needlet theory is summed up by
+\textit{Proposition 1} in \citet{2009BaldiNeedlets}, which states the
+following facts:
+\begin{enumerate}
+\item Needlets implement a \emph{tight frame} over $\mathbb{S}^n$
+  (i.e.\ a set of function which shares many properties with
+  orthonormal bases, most notabily they preserve the norm of functions
+  on $\mathbb{S}^n$);
+\item Such frame is well localized both in the harmonic space (where
+  it has compact support) and in the pixel space (where it vanishes
+  faster than any polynomial).
+\end{enumerate}
+Such approach rotates around the definition of a so-called
+\emph{window function} $b(\cdot)$ which is a weight to be used with
+the harmonic coefficients $\bigl\{a_{\ell m}\bigr\}_{\ell m}$ of a map
+to get its needlet transform, according to the following formula:
+\begin{equation}
+\label{eq:needletTransformation}
+\beta_{jk} = \sqrt{\lambda_{jk}} \sum_\ell b\left(\frac\ell{B^j}\right)
+\sum_{m=-\ell}^\ell a_{\ell m} Y_{\ell m} (\xi_{jk}),
+\end{equation}
+where $\beta_{jk}$ are the needlet coefficients, so that for any fixed
+$j$ (which approximately gives the angular scale of the needlet) one
+gets back a map where only the coefficients around $\ell/B^j$ have
+been picked out. The set $\{\xi_{jk}\}$ is a set of \emph{cubature
+  points}, and it is usually taken to be the center of each pixel in
+an Healpix map. When working with Healpix maps, the $j$ index
+conventionally refers to a given \texttt{NSIDE} parameter, while $k$
+is the pixel number, running from 0 to $12 \times \mathtt{NSIDE}^2 -
+1$. The $\lambda_{jk}$ parameter is the normalization coefficient of
+the needlet and is equal to
+\begin{equation}
+\label{eq:pixelWeight}
+\lambda_{jk} = \lambda_j = \frac{4\pi}{N_j}
+\end{equation}
+for Healpix maps with $N_j$ pixels
+\citep{2010ScodellerMexicanNeedlets}.
+
+An example of how the $b\bigl(\ell/B^j\bigr)$ function looks is
+provided in fig.~\ref{fig:windowFunction}.
+
+\subsection{General implementation of the program}
+
+This program has been created using the ``Literate Programming''
+approach to development advocated by \citet{KnuthLiterateProgramming}.
+The [[noweb]]\ tool is required to create this documentation as well
+as the source code of the program to be run.
+
+In order to compile the program, you have to install the following
+libraries on your system:
+\begin{enumerate}
+\item Healpix (and CFITSIO) -- note that version 2.15a will not work
+  without a patch, you should use 2.20 or greater instead (at the time
+  of writing, 2.20 is available via the SVN repository at
+  Sourceforge);
+\item The GNU Scientific Library (GSL).
+\end{enumerate}
+
+The program accepts a number of parameters from the command line:
+\begin{enumerate}
+\item The name of a FITS file containing the map to be analysed;
+\item The $B$ parameter used in eq.~\eqref{eq:needletTransformation},
+  which gives a scale for the ``width'' of the needlets in the
+  harmonic space;
+\item The number of needlet components (i.e.\ maps) to be produced as
+  output, i.e.\ the maximum value for $j$ to be used in
+  eq.~\eqref{eq:needletTransformation}.
+\end{enumerate}
+
+The following example shows a typical invocation of our program:
+\begin{verbatim}
+./needlet_decomp input_map.fits 2.73 10
+\end{verbatim}
+This code will read [[input_map.fits]] and decompose it in ten needlet
+maps using $B = 2.73$. The maps are written in files numbered
+sequentially from 0: [[needlet-map-0.fits]], [[needlet-map-1.fits]]
+and so on.
+
+The skeleton of the program is the starting point for our
+implementation:
+<<main.cpp>>=
+#include <cstdlib>   // For `atoi' and `atof'
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <fitsio.h>
+
+#include <alm.h>
+#include <alm_healpix_tools.h>
+#include <datatypes.h>
+#include <healpix_base.h>
+#include <healpix_map.h>
+#include <healpix_map_fitsio.h>
+
+#include "needlets.hpp"
+
+<<Global definitions>>
+
+int main(int argc, char ** argv)
+{
+    <<Parse the command line>>
+    <<Read the input map and compute its spherical transformation>>
+    <<Perform the analysis and save the results>>
+
+    return 0;
+}
+@ %def main
+
+
+\subsection{Basic initialisation}
+
+The input parameters accepted in the command line (see the previous
+section) are kept in global variables:
+<<Global definitions>>=
+std::string input_file_name;
+double b_parameter;
+int j_max;
+@ %def input_file_name b_parameter j_max
+
+Such parameters are initialized by scanning the variables [[argc]]\
+and [[argv]], which contain the number of arguments provided in the
+command line and the arguments themselves:
+<<Parse the command line>>=
+if (argc != 4)
+{
+    std::cerr << "Usage: needlet_decomp FITS_MAP_FILE B_PARAM MAX_J\n";
+    return 1;
+}
+
+input_file_name = argv[1];
+
+if ((b_parameter = std::atof(argv[2])) <= 0.0)
+{
+    std::cerr << "The B parameter must be a positive number\n";
+    return 1;
+}
+
+if ((j_max = std::atoi(argv[3])) <= 0)
+{
+    std::cerr << "The number of components must be positive\n";
+    return 1;
+}
+@ 
+
+The code needs the maximum value for the $\ell$ and $m$ coefficients
+to be used in spherical transforms. I choose 2000 as this corresponds
+to an angular scale of roughly 5 arcminutes, which is more than enough
+even for Planck. The [[j_min]] constant specifies the first value to
+use when looping over the values of $j$ in
+eq.~\eqref{eq:needletTransformation}:
+<<Global definitions>>=
+static const int l_max = 2000;
+static const int m_max = l_max;
+static const int j_min = 0;
+@ %def j_min l_max m_max
+
+
+\subsection{Reading the input map}
+
+To read the Healpix map I use the [[read_Healpix_map_from_fits]]\
+function, which is provided by the [[Healpix_cxx]] package.
+Unfortunately the documentation for the library does not go very deep
+in details and does not explain how to catch error conditions.
+Therefore, the code does not perform any error checking here. Since we
+are going to do a spherical transformation on the map, and Healpix
+requires maps to be stored using ring order for this transformation to
+be applied, we apply [[swap_scheme]] if needed. (Note that the default
+output of Madam 3.6 and above is to write map in nested order.)
+<<Read the input map and compute its spherical transformation>>=
+Healpix_Map<double> input_map;
+std::cerr << "Reading map " << input_file_name << '\n';
+read_Healpix_map_from_fits(input_file_name, input_map);
+if(input_map.Scheme() != RING)
+{
+    std::cerr << "Converting map into RING scheme\n";
+    input_map.swap_scheme();
+}
+std::cerr << "Map read into memory\n";
+@ %def input_map
+To calculate the $a_{\ell m}$ coefficients we use [[map2alm]]. One of
+the function parameters is a set of weights for each ring; as we do
+not use this feature, we create a double array ([[ring_weights]]) large
+enough and set every element to 1 (the value suggested by the Healpix
+documentation for [[map2alm]] when no weighting is wanted):
+<<Read the input map and compute its spherical transformation>>=
+Alm<xcomplex<double> > input_alm(l_max, m_max);
+arr<double> ring_weights(2 * input_map.Nside());
+for (size_t i = 0; i < ring_weights.size(); ++i)
+    ring_weights[i] = 1.0;
+
+std::cerr << "Decomposing the map into its spherical harmonics...\n";
+map2alm_iter(input_map, input_alm, 5, ring_weights);
+std::cerr << "...done\n";
+@ %def input_alm
+
+
+\subsection{Application of the needlet transformation}
+
+At this point the code is ready to apply the needlet transformations
+on the map. I have chosen to postpone the details about how to
+calculate the window function and to filter the coefficients to
+sect.~\ref{sec:needletCalculation}, in order to keep the pace in
+explaining the outline of the main program. The only thing to know
+here is that the window function is calculated by [[window_function]]\
+and uses a [[needlet_t]]\ object as a cache to speed up computations.
+It also requires a vector containing the values of $\ell$ where to
+compute $b$: this is the purpose of [[ang_scales]].
+<<Perform the analysis and save the results>>=
+arr<double> ang_scales(l_max + 1);
+for (int l = 0; l <= l_max; ++l)
+    ang_scales[l] = l;
+
+needlet_t * needlet = needlet_init(b_parameter, input_map.Nside());
+@ %def ang_scales needlet
+
+The loop over the values of $j$ is rather uninteresting. The code uses
+[[Alm::ScaleL]] to scale all the $a_{\ell m}$ coefficients of
+[[output_alm]] (which has been initialized with the coefficients of
+the input map) with the window function stored in [[filter]]. Note
+that we prepend [[!]] to the name of the FITS file when saving the
+map: in this way we get rid of the annoying error messages produced by
+CFITSIO every time the programmer wants to overwrite an existing file.
+<<Perform the analysis and save the results>>=
+for(int j = j_min; j <= j_max; ++j)
+{
+    std::cerr << "Processing j = " << j << '\n';
+
+    arr<double> filter(l_max + 1);
+    Alm<xcomplex<double> > output_alm(input_alm);
+
+    std::cerr << "    estimating the window function\n";
+    window_function(needlet,
+		    j,
+		    l_max + 1,
+		    ang_scales.begin(),
+		    filter.begin());
+
+    std::cerr << "    scaling the alm coefficients\n";
+    output_alm.ScaleL(filter);
+
+    Healpix_Map<double> output_map(input_map.Nside(), RING, SET_NSIDE);
+    std::cerr << "    converting the coefficients into a map\n";
+    alm2map(output_alm, output_map);
+
+    std::stringstream cur_file_name;
+    cur_file_name << "needlet-map-" << j << ".fits";
+    write_Healpix_map_to_fits(std::string("!") + cur_file_name.str(),
+                              output_map, PLANCK_FLOAT64);
+    std::cerr << "File " << cur_file_name.str() << " written to disk\n";
+}
+needlet_free(needlet);
+@
+
+
+\input{needlets}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+\section{Index of symbols}
+
+Here we provide a list of the symbols used in the code. Each reference is of
+the form \texttt{nL}, where \texttt{n} is the number of the page and \texttt{L}
+a letter specifying the code chunk within that page starting from ``a''.
+Underlined references point to the definition of the symbol.
+
+\nowebindex
+
+\bibliography{needlet_decomp}
+\end{document}

@@ -1,0 +1,296 @@
+\section{Needlet calculation}
+\label{sec:needletCalculation}
+
+We are going to implement needlet functions in a separate file, so
+that they can be easily used in other projects as well. The structure
+of the file is the following:
+<<needlets.cpp>>=
+#include "needlets.hpp"
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_spline.h>
+
+<<Global definitions for [[needlets.cpp]]>>
+<<Static functions only used by [[needlets.cpp]]>>
+<<Exported needlet functions>>
+@ so that we stress that only a fraction of the functions defined in
+this module will be visible outside. The header file associated with
+[[needlets.cpp]] is provided here:
+<<needlets.hpp>>=
+#ifndef NEEDLETS_HPP
+#define NEEDLETS_HPP
+
+#include <stddef.h>  /* For size_t */
+
+typedef struct __needlet_t needlet_t;
+
+needlet_t * needlet_init(double b_param, unsigned int nside);
+void needlet_free(needlet_t *);
+
+void window_function (needlet_t * needlet,
+                      int j,
+                      size_t size,
+                      const double * ang_scales,
+                      double * result);
+
+#endif
+@ As you can see, apart from two utility functions [[needlet_init]]\
+and [[needlet_free]]\ (which we shall cover later), the only exported
+function is [[window_function]], which gives the weights of the
+harmonic coefficients that realize the needlet transform. In the next
+paragraphs we shall explain the purpose of such function and provide
+its full implementation.
+
+
+\subsection{The basic theory of standard needlets}
+
+Standard needlets are discussed by
+\citet{2008MarinucciNeedletsAndCMB}, which provides a practical recipe
+to build the window function $b(\cdot)$ in
+eq.~\eqref{eq:needletTransformation}. Unfortunately, $b(\cdot)$ is
+built using a non-analytic function and its numerical estimation
+requires the calculation of non-algebraic integrals. It therefore
+complicates any numerical implementation of the needlet concept.
+
+First of all, let us recall the steps required to build the window function
+$b(\cdot)$, while at the same time underlying any numerical issue each step
+might pose:
+\begin{enumerate}
+\item Define
+\begin{equation}
+f(t) := \begin{cases}
+\exp \left(\frac{1}{1 - t^2}\right), & t \in [-1, 1], \\
+0, & \text{otherwise}.
+\end{cases}
+\end{equation}
+Note that $f$ is $C^\infty$, but it is not analytic around points $t = \pm 1$,
+because $f^{(n)} (\pm 1) = 0\ \forall n$. Therefore, such function cannot be
+approximated easily using Taylor series\footnote{The usage of
+Pad\'e\ approximants reduces the problem while however not completely curing it
+(tests were made up to the approximant $[15/13]_f (t)$ built around points $t =
+0$ and $t = \pm \frac12$).} over the interval $[-1, 1]$.
+
+\item Define
+\begin{equation}
+\label{eq:psi}
+\psi (u) := \frac{\int_{-1}^u f(t)\,\ud t}{\int_{-1}^1 f(t)\,\ud t}.
+\end{equation}
+The fact that $\psi \in C^\infty$ derives from the same property for $f$. Such
+function requires the evaluation of an integral which has no algebraic form.
+Therefore, numerical integration algorithms must be implemented. The
+denominator has the following value (truncated to 18 digits):
+\begin{equation}
+K := \int_{-1}^1 f(t)\,\ud t = 0.443\,993\,816\,168\,079\,438.
+\end{equation}
+
+\item Define
+\begin{equation}
+\label{eq:phi}
+\varphi_B (t) := \begin{cases}
+1, & t \in \left[0, \frac1B\right], \\
+\psi\left(1 - \frac{2B}{B-1} \left(t - \frac1B\right)\right), & t \in
+\left(\frac1B, 1\right), \\ 0, & t > 1.
+\end{cases}
+\end{equation}
+for $B > 0$.
+
+\item Define the window function $b (\cdot)$ such that
+\begin{equation}
+\label{eq:b}
+b (\xi) := \sqrt{\varphi_B \left(\frac{\xi}B\right) - \varphi_B(\xi)}.
+\end{equation}
+\end{enumerate}
+
+
+\subsection{Implementation of the needlet functions}
+
+Unlike \citet{2010PietrobonNeedATool}, which perform a numerical
+integration to calculate the integrals in eq.~\ref{eq:psi}, my code
+interpolates values calculated numerically using Mathematica using a
+spline approximation. Such approach allows to get a much better
+accuracy in constant computation time.
+
+Taking advantage of the simmetry of $\psi$ around $(0, 1/2)$, I used
+Wolfram Mathematica to calculate the value for the function in a
+number of points within the $[-1, 0]$ range (the step was 0.02). Such
+samples are stored in the static global variable
+[[needlet_phi_points]]:
+<<Global definitions for [[needlets.cpp]]>>=
+/* Range goes from -1.01 to 0.01 in steps of 0.02 */
+static const double needlet_phi_points[] = {
+    0.00000000e+00, 0.00000000e+00, 6.10726446e-26, 1.80473593e-14,
+    1.63146885e-10, 1.81011396e-08, 3.33941762e-07, 2.47115014e-06,
+    1.07501585e-05, 3.33635137e-05, 8.23638779e-05, 1.72785830e-04,
+    3.21411357e-04, 5.45573939e-04, 8.62196482e-04, 1.28711301e-03,
+    1.83464846e-03, 2.51740299e-03, 3.34618479e-03, 4.33004296e-03,
+    5.47636332e-03, 6.79099953e-03, 8.27842094e-03, 9.94186438e-03,
+    1.17834820e-02, 1.38044808e-02, 1.60052501e-02, 1.83854783e-02,
+    2.09442559e-02, 2.36801676e-02, 2.65913725e-02, 2.96756753e-02,
+    3.29305873e-02, 3.63533793e-02, 3.99411282e-02, 4.36907558e-02,
+    4.75990635e-02, 5.16627608e-02, 5.58784904e-02, 6.02428494e-02,
+    6.47524071e-02, 6.94037205e-02, 7.41933466e-02, 7.91178536e-02,
+    8.41738297e-02, 8.93578906e-02, 9.46666853e-02, 1.00096901e-01,
+    1.05645269e-01, 1.11308565e-01, 1.17083611e-01, 1.22967283e-01,
+    1.28956505e-01, 1.35048255e-01, 1.41239561e-01, 1.47527507e-01,
+    1.53909226e-01, 1.60381906e-01, 1.66942786e-01, 1.73589155e-01,
+    1.80318352e-01, 1.87127766e-01, 1.94014833e-01, 2.00977036e-01,
+    2.08011904e-01, 2.15117011e-01, 2.22289973e-01, 2.29528448e-01,
+    2.36830134e-01, 2.44192769e-01, 2.51614129e-01, 2.59092025e-01,
+    2.66624305e-01, 2.74208849e-01, 2.81843571e-01, 2.89526414e-01,
+    2.97255354e-01, 3.05028392e-01, 3.12843559e-01, 3.20698910e-01,
+    3.28592527e-01, 3.36522513e-01, 3.44486996e-01, 3.52484123e-01,
+    3.60512062e-01, 3.68568999e-01, 3.76653139e-01, 3.84762704e-01,
+    3.92895928e-01, 4.01051064e-01, 4.09226374e-01, 4.17420136e-01,
+    4.25630637e-01, 4.33856174e-01, 4.42095054e-01, 4.50345591e-01,
+    4.58606108e-01, 4.66874931e-01, 4.75150394e-01, 4.83430833e-01,
+    4.91714588e-01, 5.00000000e-01, 5.08285412e-01 };
+static const size_t num_of_needlet_phi_points =
+    sizeof(needlet_phi_points) / sizeof(needlet_phi_points[0]);
+@ %def needlet_phi_points num_of_needlet_phi_points
+(Note that I have sampled an interval slightly larger than $[-1, 1]$.)
+
+To do the spline interpolation, my code uses the [[gsl_spline_eval]]\
+function implemented by the GNU Scientific Library (GSL for short). A
+nice characteristic of [[gsl_spline_eval]]\ is the ability to use an
+``interpolation accelerator''. Every time [[gsl_spline_eval]] is
+called for some point $u \in [-1, 0]$, it must search in
+[[needlet_phi_points]]\ for three elements $\psi(u_{j-1}), \psi(u_j),
+\psi(u_{j+1})$ with $u_j$ being the closest to $u$. Such search can be
+speed up using a cache that allows to quickly find the three sample
+points. This is one of the reasons why [[needlet.hpp]]\ referenced an
+anonymous structure [[needlet_t]]: because the codde needs to keep a
+pointer to the spline ([[gsl_spline]]) and to the cache
+([[gsl_interp_accel]]):
+<<Global definitions for [[needlets.cpp]]>>=
+struct __needlet_t {
+    double             b_param;
+    unsigned int       nside;
+    gsl_interp_accel * acc;
+    gsl_spline       * spline;
+};
+@ %def __needlet_t
+Field [[b_param]] contains the value of $B$ (see
+eq.~\ref{eq:needletTransformation}) and field [[nside]]\ contains the
+value of NSIDE for the final map (used to compute the pixel weights,
+see eq.~\ref{eq:pixelWeight}). Note that we already declared a
+[[typedef]] to [[needlet_t]] for this structure in [[needlet.hpp]]:
+therefore, any C program including the header file will see
+[[needlet_t]] as an opaque structure.
+
+The function that creates a new [[needlet_t]] object is [[needlet_init]]:
+<<Exported needlet functions>>=
+needlet_t *
+needlet_init(double b_param, unsigned int nside)
+{
+    needlet_t * needlet;
+
+    needlet = (needlet_t *) malloc(sizeof (needlet_t));
+    needlet->b_param = b_param;
+    needlet->nside   = nside;
+    needlet->acc     = gsl_interp_accel_alloc();
+    needlet->spline  = gsl_spline_alloc(gsl_interp_cspline,
+                                        num_of_needlet_phi_points);
+
+    double x[num_of_needlet_phi_points];
+    for (size_t i = 0; i < num_of_needlet_phi_points; ++i)
+        x[i] = -1.01 + i * 0.01;
+    gsl_spline_init(needlet->spline, x, needlet_phi_points,
+                    num_of_needlet_phi_points);
+    return needlet;
+}
+@ %def needlet_init
+Of course we also need a function which disposes existing needlets:
+<<Exported needlet functions>>=
+void
+needlet_free(needlet_t * needlet)
+{
+    if (needlet == NULL)
+        return;
+
+    gsl_spline_free(needlet->spline);
+    gsl_interp_accel_free(needlet->acc);
+    free(needlet);
+}
+@ %def needlet_free
+
+The next function to be defined is [[psi]] (eq.~\ref{eq:psi}). As I
+have anticipated above when defining [[needlet_phi_points]], its
+implementation relies on the fact that the function is symmetric with
+respect to point $(0, 1/2)$ and the spline is defined only in the
+$(-1,0)$ boundary. Since there is little use of [[psi]]\ outside
+[[needlets.cpp]], I have hidden this function to the outside using
+[[static]].
+<<Static functions only used by [[needlets.cpp]]>>=
+static double
+psi(needlet_t * needlet,
+    double u)
+{
+    if (u <= -1.0)
+        return 0;
+    else if (u >= 1.0)
+        return 1.0;
+    else
+    {
+        double neg_u = -fabs(u);
+        double spline = gsl_spline_eval(needlet->spline,
+                                        neg_u,
+					needlet->acc);
+	return (u > 0.0) ? (1 - spline) : spline;
+    }
+}
+@ %def psi
+
+The next function is $\varphi_B$, the composition of $\psi$ and $1 -
+2B (t-1/B) / (B + 1)$. The implementation of [[phi]] requires the
+following arguments: (1) a pointer to a [[needlet_t]] structure which
+defines the spline for $\psi$, (2) the value of the $2B/(B - 1)$ as
+appears in eq.~\eqref{eq:phi} (stored in [[factor]]), (3) the value of
+the $1/B$ parameter, (4) the point $t$ where to calculate $\varphi_B$:
+<<Static functions only used by [[needlets.cpp]]>>=
+static double
+phi(needlet_t * needlet,
+    double factor,
+    double b_inv,
+    double t)
+{
+    return psi(needlet, 1 - factor * (t - b_inv));
+}
+@ %def phi
+It is not computationally expensive to separate the definition of
+[[phi]]\ from the definition of [[psi]]: any decent C++ compiler will
+short circuit the definition of [[phi]].
+
+Now I am going to implement [[window_function]], the function that
+estimates the value of $b(\ell/B^j\cdot)$ in
+eq.~\eqref{eq:needletTransformation}. Unlike [[psi]]\ and [[phi]]\, it
+accepts a vector of values where to compute the window function
+([[values]]\ is the set of $\ell_i$ for which $b_B(\ell_i)$ must be
+calculated, with $i = 0\ldots$[[size-1]]). The constant
+[[pixel_weight]] is equal to $\sqrt{\lambda_j}$, which is defined in
+eq.~\eqref{eq:pixelWeight}:
+\[
+\sqrt{\lambda_j} = \sqrt{\frac{4\pi}{N_j}}
+  = \sqrt{\frac{4\pi}{12 N_\mathrm{side}^2}}
+ = \frac{\sqrt\pi}{\sqrt 3\,N_\mathrm{side}}.
+\]
+<<Exported needlet functions>>=
+void
+window_function (needlet_t * needlet,
+                 int j,
+                 size_t size,
+                 const double * ang_scales,
+                 double * result)
+{
+    const double b_inv  = 1 / needlet->b_param;
+    const double factor = 2 * needlet->b_param / (needlet->b_param - 1);
+    const double b_inv_to_j = gsl_pow_int(b_inv, j);
+    const double pixel_weight = M_SQRTPI / (M_SQRT3 * needlet->nside);
+
+    for (size_t i = 0; i < size; ++i)
+    {
+        const double l_over_b_to_j = ang_scales[i] * b_inv_to_j;
+        result[i] = sqrt(phi(needlet, factor, b_inv, l_over_b_to_j * b_inv) -
+                         phi(needlet, factor, b_inv, l_over_b_to_j))
+                    * pixel_weight;
+    }
+}
+@ %def window_function
