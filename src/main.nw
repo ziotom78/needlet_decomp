@@ -285,7 +285,10 @@ Therefore, the code does not perform any error checking here. Since we
 are going to do a spherical transformation on the map, and Healpix
 requires maps to be stored using ring order for this transformation to
 be applied, we apply [[swap_scheme]] if needed. (Note that the default
-output of Madam 3.6 and above is to write map in nested order.)
+output of Madam 3.6 and above is to write map in nested order.) We set
+to zero any pixel whose value is less than $1.6\times 10^{30}$, as
+Healpix uses a similar value to flag pixels not to be accounted in
+analyses.
 <<Read the input map and compute its spherical transformation>>=
 Healpix_Map<double> input_map;
 std::cerr << "Reading map " << input_file_name << '\n';
@@ -296,7 +299,21 @@ if(input_map.Scheme() != RING)
     input_map.swap_scheme();
 }
 std::cerr << "Map read into memory\n";
+unsigned long num_of_flagged_pixels = 0;
+arr<double> map_pixels = input_map.Map();
+for (unsigned long i = 0; i < map_pixels.size(); ++i)
+{
+    if (map_pixels[i] < -1.6e+30)
+    {
+	map_pixels[i] = 0.0;
+	num_of_flagged_pixels++;
+    }
+}
+if (num_of_flagged_pixels > 0)
+    std::cout << num_of_flagged_pixels
+              << " pixels were flagged and set to zero\n";
 @ %def input_map
+
 To calculate the $a_{\ell m}$ coefficients we use [[map2alm]]. One of
 the function parameters is a set of weights for each ring; as we do
 not use this feature, we create a double array ([[ring_weights]]) large
