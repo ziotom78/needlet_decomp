@@ -206,6 +206,7 @@ implementation:
 #include <fitsio.h>
 
 #include <alm.h>
+#include <alm_fitsio.h>
 #include <alm_healpix_tools.h>
 #include <datatypes.h>
 #include <healpix_base.h>
@@ -299,6 +300,7 @@ if(input_map.Scheme() != RING)
     input_map.swap_scheme();
 }
 std::cerr << "Map read into memory\n";
+
 unsigned long num_of_flagged_pixels = 0;
 arr<double> map_pixels = input_map.Map();
 for (unsigned long i = 0; i < map_pixels.size(); ++i)
@@ -312,6 +314,8 @@ for (unsigned long i = 0; i < map_pixels.size(); ++i)
 if (num_of_flagged_pixels > 0)
     std::cout << num_of_flagged_pixels
               << " pixels were flagged and set to zero\n";
+
+input_map.Set(map_pixels, input_map.Scheme());
 @ %def input_map
 
 To calculate the $a_{\ell m}$ coefficients we use [[map2alm]]. One of
@@ -363,23 +367,28 @@ for(int j = j_min; j <= j_max; ++j)
     std::cerr << "Processing j = " << j << '\n';
 
     arr<double> filter(l_max + 1);
-    Alm<xcomplex<double> > output_alm(input_alm);
+    Alm<xcomplex<double> > output_alm;
+    output_alm = input_alm;
 
     std::cerr << "    estimating the window function\n";
-    window_function(needlet,
-		    j,
-		    l_max + 1,
-		    ang_scales.begin(),
-		    filter.begin());
+    window_function(needlet, j, l_max + 1,
+		    ang_scales.begin(), filter.begin());
 
-    std::cerr << "    scaling the alm coefficients\n";
+    std::cerr << "    filtering the alm coefficients\n";
     output_alm.ScaleL(filter);
+
+    std::stringstream cur_file_name;
+    cur_file_name << "needlet-alm-" << j << ".fits";
+    std::cerr << "    saving the alm parameters in "
+              << cur_file_name.str() << '\n';
+    write_Alm_to_fits(std::string("!") + cur_file_name.str(),
+                      output_alm, l_max, m_max, PLANCK_FLOAT64);
 
     Healpix_Map<double> output_map(input_map.Nside(), RING, SET_NSIDE);
     std::cerr << "    converting the coefficients into a map\n";
     alm2map(output_alm, output_map);
 
-    std::stringstream cur_file_name;
+    cur_file_name.str("");  // Reset the stream
     cur_file_name << "needlet-map-" << j << ".fits";
     write_Healpix_map_to_fits(std::string("!") + cur_file_name.str(),
                               output_map, PLANCK_FLOAT64);
