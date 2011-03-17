@@ -265,16 +265,6 @@ if (   (j_min = std::atoi(argv[3])) < 0
 }
 @ 
 
-The code needs the maximum value for the $\ell$ and $m$ coefficients
-to be used in spherical transforms. I choose 2000 as this corresponds
-to an angular scale of roughly 5 arcminutes, which is more than enough
-even for Planck.
-eq.~\eqref{eq:needletTransformation}:
-<<Global definitions>>=
-static const int l_max = 2000;
-static const int m_max = l_max;
-@ %def l_max m_max
-
 
 \subsection{Reading the input map}
 
@@ -324,6 +314,9 @@ not use this feature, we create a double array ([[ring_weights]]) large
 enough and set every element to 1 (the value suggested by the Healpix
 documentation for [[map2alm]] when no weighting is wanted):
 <<Read the input map and compute its spherical transformation>>=
+unsigned int l_max = 3 * input_map.Nside() - 1;
+unsigned int m_max = l_max;
+
 Alm<xcomplex<double> > input_alm(l_max, m_max);
 arr<double> ring_weights(2 * input_map.Nside());
 for (size_t i = 0; i < ring_weights.size(); ++i)
@@ -348,7 +341,7 @@ It also requires a vector containing the values of $\ell$ where to
 compute $b$: this is the purpose of [[ang_scales]].
 <<Perform the analysis and save the results>>=
 arr<double> ang_scales(l_max + 1);
-for (int l = 0; l <= l_max; ++l)
+for (unsigned int l = 0; l <= l_max; ++l)
     ang_scales[l] = l;
 
 needlet_t * needlet = needlet_init(b_parameter, input_map.Nside());
