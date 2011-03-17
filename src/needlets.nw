@@ -142,7 +142,7 @@ static const double needlet_phi_points[] = {
     3.92895928e-01, 4.01051064e-01, 4.09226374e-01, 4.17420136e-01,
     4.25630637e-01, 4.33856174e-01, 4.42095054e-01, 4.50345591e-01,
     4.58606108e-01, 4.66874931e-01, 4.75150394e-01, 4.83430833e-01,
-    4.91714588e-01, 5.00000000e-01, 5.08285412e-01 };
+    4.91714588e-01, 5.00000000e-01, 5.00000000e-01 };
 static const size_t num_of_needlet_phi_points =
     sizeof(needlet_phi_points) / sizeof(needlet_phi_points[0]);
 @ %def needlet_phi_points num_of_needlet_phi_points
@@ -272,6 +272,11 @@ eq.~\eqref{eq:pixelWeight}:
   = \sqrt{\frac{4\pi}{12 N_\mathrm{side}^2}}
  = \frac{\sqrt\pi}{\sqrt 3\,N_\mathrm{side}}.
 \]
+When $\varphi_B$ is calculated at points very near $1$, it can happen
+that the difference $\varphi(\ell/B^{j+1}) - \varphi(\ell/B^j)$ is
+a negative number very close to zero. In this case calculating the
+square root would lead to a [[NaN]]: the code prevents such
+possibility by arbitrarly rounding the difference [[diff]] to zero.
 <<Exported needlet functions>>=
 void
 window_function (needlet_t * needlet,
@@ -288,9 +293,12 @@ window_function (needlet_t * needlet,
     for (size_t i = 0; i < size; ++i)
     {
         const double l_over_b_to_j = ang_scales[i] * b_inv_to_j;
-        result[i] = sqrt(phi(needlet, factor, b_inv, l_over_b_to_j * b_inv) -
-                         phi(needlet, factor, b_inv, l_over_b_to_j))
-                    * pixel_weight;
+	const double diff = phi(needlet, factor, b_inv, l_over_b_to_j * b_inv) -
+                            phi(needlet, factor, b_inv, l_over_b_to_j);
+        if (diff > 0.0)
+            result[i] = sqrt(diff) * pixel_weight;
+	else
+            result[i] = 0.0;
     }
 }
 @ %def window_function
