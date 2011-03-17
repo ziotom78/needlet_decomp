@@ -259,7 +259,7 @@ if ((b_parameter = std::atof(argv[2])) <= 0.0)
 }
 
 if (   (j_min = std::atoi(argv[3])) < 0
-    || (j_max = std::atoi(argv[3])) < 0)
+    || (j_max = std::atoi(argv[4])) < 0)
 {
     std::cerr << "The number of components must be positive\n";
     return 1;
