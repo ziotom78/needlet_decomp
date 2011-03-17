@@ -180,14 +180,14 @@ The program accepts a number of parameters from the command line:
 \item The $B$ parameter used in eq.~\eqref{eq:needletTransformation},
   which gives a scale for the ``width'' of the needlets in the
   harmonic space;
-\item The number of needlet components (i.e.\ maps) to be produced as
-  output, i.e.\ the maximum value for $j$ to be used in
-  eq.~\eqref{eq:needletTransformation}.
+\item The first and last index of the needlet component (i.e.\ map)
+  to be produced as output, i.e.\ the maximum value for $j$ to be used
+  in eq.~\eqref{eq:needletTransformation}.
 \end{enumerate}
 
 The following example shows a typical invocation of our program:
 \begin{verbatim}
-./needlet_decomp input_map.fits 2.73 10
+./needlet_decomp input_map.fits 2.73 0 9
 \end{verbatim}
 This code will read [[input_map.fits]] and decompose it in ten needlet
 maps using $B = 2.73$. The maps are written in files numbered
@@ -235,14 +235,15 @@ section) are kept in global variables:
 <<Global definitions>>=
 std::string input_file_name;
 double b_parameter;
+int j_min;
 int j_max;
-@ %def input_file_name b_parameter j_max
+@ %def input_file_name b_parameter j_min j_max
 
 Such parameters are initialized by scanning the variables [[argc]]\
 and [[argv]], which contain the number of arguments provided in the
 command line and the arguments themselves:
 <<Parse the command line>>=
-if (argc != 4)
+if (argc != 5)
 {
     std::cerr << "Usage: needlet_decomp FITS_MAP_FILE B_PARAM MAX_J\n";
     return 1;
@@ -256,7 +257,8 @@ if ((b_parameter = std::atof(argv[2])) <= 0.0)
     return 1;
 }
 
-if ((j_max = std::atoi(argv[3])) <= 0)
+if (   (j_min = std::atoi(argv[3])) < 0
+    || (j_max = std::atoi(argv[3])) < 0)
 {
     std::cerr << "The number of components must be positive\n";
     return 1;
@@ -266,14 +268,12 @@ if ((j_max = std::atoi(argv[3])) <= 0)
 The code needs the maximum value for the $\ell$ and $m$ coefficients
 to be used in spherical transforms. I choose 2000 as this corresponds
 to an angular scale of roughly 5 arcminutes, which is more than enough
-even for Planck. The [[j_min]] constant specifies the first value to
-use when looping over the values of $j$ in
+even for Planck.
 eq.~\eqref{eq:needletTransformation}:
 <<Global definitions>>=
 static const int l_max = 2000;
 static const int m_max = l_max;
-static const int j_min = 0;
-@ %def j_min l_max m_max
+@ %def l_max m_max
 
 
 \subsection{Reading the input map}
