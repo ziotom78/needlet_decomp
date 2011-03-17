@@ -203,6 +203,7 @@ implementation:
 #include <string>
 #include <vector>
 
+#include <gsl/gsl_math.h>
 #include <fitsio.h>
 
 #include <alm.h>
@@ -295,7 +296,7 @@ unsigned long num_of_flagged_pixels = 0;
 arr<double> map_pixels = input_map.Map();
 for (unsigned long i = 0; i < map_pixels.size(); ++i)
 {
-    if (map_pixels[i] < -1.6e+30)
+    if (map_pixels[i] < -1.6e+30 || ! gsl_finite(map_pixels[i]))
     {
 	map_pixels[i] = 0.0;
 	num_of_flagged_pixels++;
