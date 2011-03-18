@@ -246,7 +246,7 @@ command line and the arguments themselves:
 <<Parse the command line>>=
 if (argc != 5)
 {
-    std::cerr << "Usage: needlet_decomp FITS_MAP_FILE B_PARAM MAX_J\n";
+    std::cerr << "Usage: needlet_decomp MAP_FILE B_PARAM MIN_J MAX_J\n";
     return 1;
 }
 
