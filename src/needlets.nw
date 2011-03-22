@@ -105,48 +105,77 @@ b (\xi) := \sqrt{\varphi_B \left(\frac{\xi}B\right) - \varphi_B(\xi)}.
 
 Unlike \citet{2010PietrobonNeedATool}, which perform a numerical
 integration to calculate the integrals in eq.~\ref{eq:psi}, my code
-interpolates values calculated numerically using Mathematica using a
-spline approximation. Such approach allows to get a much better
-accuracy in constant computation time.
+interpolates values calculated numerically with Wolfram Mathematica
+6.0.3.0 using a spline approximation. Such approach allows to get a
+much better accuracy in constant computation time.
 
 Taking advantage of the simmetry of $\psi$ around $(0, 1/2)$, I used
-Wolfram Mathematica to calculate the value for the function in a
-number of points within the $[-1, 0]$ range (the step was 0.02). Such
-samples are stored in the static global variable
+the following code to make Mathematica evaluate $\psi$ in a number of
+points within the $[-1, 0]$ range (the step was 0.02):
+\begin{verbatim}
+f[t_] := If[Abs[t] < 1, Exp[-(1/(1 - t^2))], 0];
+psi[u_] := Integrate[f[t], {t, -1, u}]/Integrate[f[t], {t, -1, 1}];
+lValues = Range[-1 - 1/100, 1/100, 1/100];
+needletLPoints = N[lValues];
+needletPhiPoints = N[psi /@ lValues, 16];
+\end{verbatim}
+Note that we round the values in [[needletPhiPoints]] to 16 digits,
+which is the typical precision for 8-byte floating point numbers. The
+values in [[needletPhiPoints]] are converted in a format ingestible by
+the C compiler and used to define the static global variable
 [[needlet_phi_points]]:
 <<Global definitions for [[needlets.cpp]]>>=
-/* Range goes from -1.01 to 0.01 in steps of 0.02 */
+static const double needlet_l_points[] = {
+   -1.01,-1.,-0.99,-0.98,-0.97,-0.96,-0.95,-0.94,-0.93,-0.92,-0.91,
+   -0.9,-0.89,-0.88,-0.87,-0.86,-0.85,-0.84,-0.83,-0.82,-0.81,-0.8,-0.79,
+   -0.78,-0.77,-0.76,-0.75,-0.74,-0.73,-0.72,-0.71,-0.7,-0.69,-0.68,
+   -0.67,-0.66,-0.65,-0.64,-0.63,-0.62,-0.61,-0.6,-0.59,-0.58,-0.57,
+   -0.56,-0.55,-0.54,-0.53,-0.52,-0.51,-0.5,-0.49,-0.48,-0.47,-0.46,
+   -0.45,-0.44,-0.43,-0.42,-0.41,-0.4,-0.39,-0.38,-0.37,-0.36,-0.35,
+   -0.34,-0.33,-0.32,-0.31,-0.3,-0.29,-0.28,-0.27,-0.26,-0.25,-0.24,
+   -0.23,-0.22,-0.21,-0.2,-0.19,-0.18,-0.17,-0.16,-0.15,-0.14,-0.13,
+   -0.12,-0.11,-0.1,-0.09,-0.08,-0.07,-0.06,-0.05,-0.04,-0.03,-0.02,
+   -0.01,0.,0.01
+};
 static const double needlet_phi_points[] = {
-    0.00000000e+00, 0.00000000e+00, 6.10726446e-26, 1.80473593e-14,
-    1.63146885e-10, 1.81011396e-08, 3.33941762e-07, 2.47115014e-06,
-    1.07501585e-05, 3.33635137e-05, 8.23638779e-05, 1.72785830e-04,
-    3.21411357e-04, 5.45573939e-04, 8.62196482e-04, 1.28711301e-03,
-    1.83464846e-03, 2.51740299e-03, 3.34618479e-03, 4.33004296e-03,
-    5.47636332e-03, 6.79099953e-03, 8.27842094e-03, 9.94186438e-03,
-    1.17834820e-02, 1.38044808e-02, 1.60052501e-02, 1.83854783e-02,
-    2.09442559e-02, 2.36801676e-02, 2.65913725e-02, 2.96756753e-02,
-    3.29305873e-02, 3.63533793e-02, 3.99411282e-02, 4.36907558e-02,
-    4.75990635e-02, 5.16627608e-02, 5.58784904e-02, 6.02428494e-02,
-    6.47524071e-02, 6.94037205e-02, 7.41933466e-02, 7.91178536e-02,
-    8.41738297e-02, 8.93578906e-02, 9.46666853e-02, 1.00096901e-01,
-    1.05645269e-01, 1.11308565e-01, 1.17083611e-01, 1.22967283e-01,
-    1.28956505e-01, 1.35048255e-01, 1.41239561e-01, 1.47527507e-01,
-    1.53909226e-01, 1.60381906e-01, 1.66942786e-01, 1.73589155e-01,
-    1.80318352e-01, 1.87127766e-01, 1.94014833e-01, 2.00977036e-01,
-    2.08011904e-01, 2.15117011e-01, 2.22289973e-01, 2.29528448e-01,
-    2.36830134e-01, 2.44192769e-01, 2.51614129e-01, 2.59092025e-01,
-    2.66624305e-01, 2.74208849e-01, 2.81843571e-01, 2.89526414e-01,
-    2.97255354e-01, 3.05028392e-01, 3.12843559e-01, 3.20698910e-01,
-    3.28592527e-01, 3.36522513e-01, 3.44486996e-01, 3.52484123e-01,
-    3.60512062e-01, 3.68568999e-01, 3.76653139e-01, 3.84762704e-01,
-    3.92895928e-01, 4.01051064e-01, 4.09226374e-01, 4.17420136e-01,
-    4.25630637e-01, 4.33856174e-01, 4.42095054e-01, 4.50345591e-01,
-    4.58606108e-01, 4.66874931e-01, 4.75150394e-01, 4.83430833e-01,
-    4.91714588e-01, 5.00000000e-01, 5.00000000e-01 };
+0,0,6.502743904184239e-26,1.804735934292834e-14,
+   1.631468853713497e-10,1.810113957105095e-8,3.339417624783784e-7,
+   2.471150140069252e-6,0.00001075015854374423,0.00003336351373616104,
+   0.00008236387786715602,0.0001727858298059248,0.0003214113575207205,
+   0.0005455739393754458,0.0008621964816387603,0.001287113013132387,
+   0.001834648460891867,0.002517402994959833,0.003346184787030743,
+   0.004330042963612801,0.005476363319604365,0.006790999529434621,
+   0.008278420938907964,0.009941864377262811,0.01178348204478926,
+   0.01380448076780671,0.01600525011559473,0.01838547832968979,
+   0.02094425594602818,0.02368016755829782,0.02659137249414124,
+   0.02967567533735547,0.03293058728637641,0.03635337933135141,
+   0.03994112818543715,0.04369075583815134,0.04759906352107971,
+   0.05166276079624053,0.05587849039937629,0.06024284939693679,
+   0.06475240714787172,0.06940372050010411,0.07419334659675309,
+   0.07911785361856135,0.08417382974614265,0.08935789058809582,
+   0.09466668528821007,0.1000969014963931,0.1056452693630967,
+   0.1113085646954417,0.1170836113945422,0.1229672832773291,
+   0.1289565053721521,0.1350482547653029,0.1412395610651023,
+   0.1475275065411121,0.1539092259881733,0.1603819063581696,
+   0.1669427861965335,0.1735891549154128,0.1803183519310082,
+   0.1871277656887677,0.1940148325968177,0.200977035885137,
+   0.2080119044054996,0.215117011385051,0.2222899731445174,
+   0.2295284477904239,0.236830133889294,0.2441927691305803,
+   0.2516141289840201,0.259092025356192,0.2666243052502535,
+   0.2742088494321481,0.2818435711059751,0.2895264146006935,
+   0.2972553540698853,0.3050283922059126,0.3128435589694673,
+   0.320698910335222,0.3285925270540376,0.3365225134319684,
+   0.3444869961261173,0.3524841229572322,0.3605120617387989,
+   0.3685689991222625,0.376653139457912,0.3847627036708732,
+   0.3928959281515799,0.4010510636600322,0.4092263742430952,
+   0.4174201361640454,0.4256306368435351,0.4338561738111108,
+   0.4420950536663959,0.4503455910490235,0.458606107616387,
+   0.4668749310282625,0.4751503939373393,0.4834308329846915,
+   0.4917145877992081,0.5,0.5082854122007919 };
 static const size_t num_of_needlet_phi_points =
     sizeof(needlet_phi_points) / sizeof(needlet_phi_points[0]);
-@ %def needlet_phi_points num_of_needlet_phi_points
-(Note that I have sampled an interval slightly larger than $[-1, 1]$.)
+@ %def needlet_l_points needlet_phi_points num_of_needlet_phi_points
+(Note that I have sampled an interval slightly larger than $[-1, 0]$.)
 
 To do the spline interpolation, my code uses the [[gsl_spline_eval]]\
 function implemented by the GNU Scientific Library (GSL for short). A
@@ -190,10 +219,9 @@ needlet_init(double b_param, unsigned int nside)
     needlet->spline  = gsl_spline_alloc(gsl_interp_cspline,
                                         num_of_needlet_phi_points);
 
-    double x[num_of_needlet_phi_points];
-    for (size_t i = 0; i < num_of_needlet_phi_points; ++i)
-        x[i] = -1.01 + i * 0.01;
-    gsl_spline_init(needlet->spline, x, needlet_phi_points,
+    gsl_spline_init(needlet->spline,
+                    needlet_l_points,
+ 		    needlet_phi_points,
                     num_of_needlet_phi_points);
     return needlet;
 }
