@@ -58,7 +58,7 @@ might pose:
 \item Define
 \begin{equation}
 f(t) := \begin{cases}
-\exp \left(\frac{1}{1 - t^2}\right), & t \in [-1, 1], \\
+\exp \left(-\frac{1}{1 - t^2}\right), & t \in [-1, 1], \\
 0, & \text{otherwise}.
 \end{cases}
 \end{equation}
