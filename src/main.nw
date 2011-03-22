@@ -161,7 +161,7 @@ provided in fig.~\ref{fig:windowFunction}.
 
 This program has been created using the ``Literate Programming''
 approach to development advocated by \citet{KnuthLiterateProgramming}.
-The [[noweb]]\ tool is required to create this documentation as well
+The [[*****noweb]]\ tool is required to create this documentation as well
 as the source code of the program to be run.
 
 In order to compile the program, you have to install the following
@@ -187,12 +187,12 @@ The program accepts a number of parameters from the command line:
 
 The following example shows a typical invocation of our program:
 \begin{verbatim}
-./needlet_decomp input_map.fits 2.73 0 9
+./needlet_decomp input_map.fits 2.73 1 10
 \end{verbatim}
 This code will read [[input_map.fits]] and decompose it in ten needlet
-maps using $B = 2.73$. The maps are written in files numbered
-sequentially from 0: [[needlet-map-0.fits]], [[needlet-map-1.fits]]
-and so on.
+maps ($j=1\ldots 10$) with $B = 2.73$. The maps are written in files
+numbered sequentially from 1: [[needlet-map-01.fits]],
+[[needlet-map-02.fits]] and so on.
 
 The skeleton of the program is the starting point for our
 implementation:
