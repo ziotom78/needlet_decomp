@@ -22,7 +22,7 @@ main (int argc, const char ** argv)
 	ells[ell] = ell;
     }
 
-    needlet_t * needlet = needlet_init(b_value, 1);
+    needlet_t * needlet = needlet_init(b_value, 0);
     for (int j = 1; j <= j_max; ++j)
     {
 	window_function(needlet, j, num_of_ells, ells, win_func);
