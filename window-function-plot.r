@@ -12,13 +12,13 @@ data2.50 <- matrix(nrow=1000, ncol=10)
 data2.73 <- matrix(nrow=1000, ncol=10)
 
 for (i in 1:10) {
-  d <- read.table(paste("~/work/needlet_decomp/needlet-2.50-",
+  d <- read.table(paste("needlet-2.50-",
 			sprintf("%02d", i),
 			".txt", sep = ""),
 		  col.names = c("l", "w"))
   data2.50[,i] <- d$w
 
-  d <- read.table(paste("~/work/needlet_decomp/needlet-2.73-",
+  d <- read.table(paste("needlet-2.73-",
 			sprintf("%02d", i),
 			".txt", sep = ""),
 		  col.names = c("l", "w"))
