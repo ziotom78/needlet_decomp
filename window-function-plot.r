@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
-result <- system(paste("./test-needlet 2.50 1000 needlet-2.50",
-                       "./test-needlet 2.73 1000 needlet-2.73", sep = " && "),
+result <- system(paste("./test-needlet 2.50 10 needlet-2.50",
+                       "./test-needlet 2.73 10 needlet-2.73", sep = " && "),
                  wait = TRUE, intern = FALSE)
 if (result != 0) {
   cat("Unable to create the needlet files\n")
@@ -11,11 +11,17 @@ if (result != 0) {
 data2.50 <- matrix(nrow=1000, ncol=10)
 data2.73 <- matrix(nrow=1000, ncol=10)
 
-for (i in 0:9) {
-  d <- read.table(paste("~/work/needlet_decomp/needlet-2.50-0", i, ".txt", sep = ""), col.names = c("l", "w"))
+for (i in 1:10) {
+  d <- read.table(paste("~/work/needlet_decomp/needlet-2.50-",
+			sprintf("%02d", i),
+			".txt", sep = ""),
+		  col.names = c("l", "w"))
   data2.50[,i] <- d$w
 
-  d <- read.table(paste("~/work/needlet_decomp/needlet-2.73-0", i, ".txt", sep = ""), col.names = c("l", "w"))
+  d <- read.table(paste("~/work/needlet_decomp/needlet-2.73-",
+			sprintf("%02d", i),
+			".txt", sep = ""),
+		  col.names = c("l", "w"))
   data2.73[,i] <- d$w
 }
 
@@ -33,7 +39,7 @@ for (j in j.to.plot) {
        ylab = "Window function",
        mar = c(if (last) 3 else 2, 4, 0, 2))
   lines(data2.73[,j], lty = 2)
-  text(1000, 1, paste("j =", j - 1), adj = c(1, 1))
+  text(1000, 1, paste("j =", j), adj = c(1, 1))
 }
 
 r <- dev.off()
