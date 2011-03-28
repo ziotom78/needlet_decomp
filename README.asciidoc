@@ -27,6 +27,9 @@ components:
   2.20a -- any version older than this will produce compilation
   errors).
 
+- http://www.r-project.org/[GNU R], to create the nice plot showing needlets in
+  harmonic space.
+
 It is likely that you can install both Noweb and GSL using your
 favourite package manager (e.g. `apt-get` on Ubuntu Linux).
 
