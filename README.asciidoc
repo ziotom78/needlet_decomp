@@ -1,0 +1,36 @@
+README for Needlet_decomp
+=========================
+
+Introduction
+------------
+This repository contains the source code for a C++ program which decomposes
+HEALPix scalar maps into their needlet components.
+
+Supported platforms
+-------------------
+
+The program has been developed on Mac OS X 10.6, but it should run on any
+Unix machine.
+
+Installation
+------------
+
+Before compiling the software, you have to install the following
+components:
+
+- http://www.cs.tufts.edu/~nr/noweb/[Noweb], a tool for literate
+  programming by Norman Ramsey
+
+- http://www.gnu.org/software/gsl/[The GNU Scientific Library] (GSL)
+
+- http://sourceforge.net/projects/healpix/[Healpix] (at least version
+  2.20a -- any version older than this will produce compilation
+  errors).
+
+It is likely that you can install both Noweb and GSL using your
+favourite package manager (e.g. `apt-get` on Ubuntu Linux).
+
+After you installed the dependencies, edit the path to the Healpix
+library in the `Makefile` and start `make`. If you are lucky, you
+shall get the program `needlet_decomp` as well as its documentation in
+`needlet_decomp.pdf`.
