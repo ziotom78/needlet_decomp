@@ -30,6 +30,8 @@ AC_PATH_PROG(ASY, [asy])
 
 # Checks for libraries.
 
+AC_LIBOBJ(asprintf)
+
 PKG_CHECK_MODULES([GSL], [gsl])
 AC_SUBST([GSL_CFLAGS])
 AC_SUBST([GSL_LIBS])
