@@ -19,6 +19,8 @@
 #include "needlets.hpp"
 
 #line 271 "needlet_decomp.nw"
+#define PROGRAM_NAME "needlet_decomp"
+
 std::string input_file_name;
 double b_parameter;
 int j_min;
@@ -26,11 +28,11 @@ int j_max;
 const char * map_file_name_template = "needlet-map-%03d.fits";
 const char * alm_file_name_template = "needlet-alm-%03d.fits";
 int no_alm_flag = 0;  /* Whether to save a_lm maps */
-#line 353 "needlet_decomp.nw"
+#line 355 "needlet_decomp.nw"
 void
 print_help(const char * argv0)
 {
-    fprintf(stderr, "Usage: %s [OPTIONS] MAP_FILE B_PARAM MIN_J MAX_J\n\
+    printf("Usage: %s [OPTIONS] MAP_FILE B_PARAM MIN_J MAX_J\n\
 \n\
 Read a FITS file containing a Healpix map and decompose it in its\n\
 needlet components from MIN_J to MAX_J. B_PARAM is a floating-point\n\
@@ -54,15 +56,14 @@ Report bugs to <" PACKAGE_BUGREPORT ">\n", argv0);
 void
 print_version(void)
 {
-    fputs(PACKAGE_STRING " - compute needlet transforms of Healpix maps\n",
-	  stderr);
+    puts(PACKAGE_STRING " - compute needlet transforms of Healpix maps");
 }
 
 #line 214 "needlet_decomp.nw"
 int main(int argc, char ** argv)
 {
     
-#line 290 "needlet_decomp.nw"
+#line 292 "needlet_decomp.nw"
 int cur_arg = 1;
 while(argv[cur_arg][0] == '-')
 {
@@ -88,7 +89,7 @@ while(argv[cur_arg][0] == '-')
     {
 	alm_file_name_template = argv[++cur_arg];
     } else {
-	fprintf(stderr, PACKAGE_NAME ": unrecognized switch `%s'\n",
+	fprintf(stderr, PROGRAM_NAME ": unrecognized switch `%s'\n",
 		argv[cur_arg]);
 	return 1;
     }
@@ -97,7 +98,7 @@ while(argv[cur_arg][0] == '-')
 }
 #line 217 "needlet_decomp.nw"
     
-#line 329 "needlet_decomp.nw"
+#line 331 "needlet_decomp.nw"
 if (argc - cur_arg != 4)
 {
     print_help(argv[0]);
@@ -108,28 +109,28 @@ input_file_name = argv[cur_arg++];
 
 if ((b_parameter = atof(argv[cur_arg++])) <= 0.0)
 {
-    fputs(PACKAGE_NAME ": the B parameter must be a positive number\n", stderr);
+    fputs(PROGRAM_NAME ": the B parameter must be a positive number\n", stderr);
     return 1;
 }
 
 if (   (j_min = atoi(argv[cur_arg])) < 0
     || (j_max = atoi(argv[cur_arg + 1])) < 0)
 {
-    fputs(PACKAGE_NAME ": the number of components must be positive\n", stderr);
+    fputs(PROGRAM_NAME ": the number of components must be positive\n", stderr);
     return 1;
 }
 #line 218 "needlet_decomp.nw"
     
-#line 400 "needlet_decomp.nw"
+#line 401 "needlet_decomp.nw"
 Healpix_Map<double> input_map;
-fprintf(stderr, "Reading map %s\n", input_file_name.c_str());
+fprintf(stderr, PROGRAM_NAME ": reading map %s\n", input_file_name.c_str());
 read_Healpix_map_from_fits(input_file_name, input_map);
 if(input_map.Scheme() != RING)
 {
-    fputs("Converting map into RING scheme\n", stderr);
+    fputs(PROGRAM_NAME ": converting map into RING scheme\n", stderr);
     input_map.swap_scheme();
 }
-fputs("Map read into memory\n", stderr);
+fputs(PROGRAM_NAME ": map read into memory\n", stderr);
 
 unsigned long num_of_flagged_pixels = 0;
 arr<double> map_pixels = input_map.Map();
@@ -142,11 +143,11 @@ for (unsigned long i = 0; i < map_pixels.size(); ++i)
     }
 }
 if (num_of_flagged_pixels > 0)
-    fprintf(stderr, "%lu pixels were flagged and set to zero\n",
+    fprintf(stderr, PROGRAM_NAME ": %lu pixels were flagged and set to zero\n",
 		 num_of_flagged_pixels);
 
 input_map.Set(map_pixels, input_map.Scheme());
-#line 433 "needlet_decomp.nw"
+#line 434 "needlet_decomp.nw"
 unsigned int l_max = 3 * input_map.Nside() - 1;
 unsigned int m_max = l_max;
 
@@ -155,31 +156,32 @@ arr<double> ring_weights(2 * input_map.Nside());
 for (size_t i = 0; i < ring_weights.size(); ++i)
     ring_weights[i] = 1.0;
 
-fputs("Decomposing the map into its spherical harmonics...\n", stderr);
+fputs(PROGRAM_NAME ": decomposing the map into its spherical harmonics...\n",
+      stderr);
 map2alm_iter(input_map, input_alm, 5, ring_weights);
 fputs("...done\n", stderr);
 #line 219 "needlet_decomp.nw"
     
-#line 459 "needlet_decomp.nw"
+#line 461 "needlet_decomp.nw"
 arr<double> ang_scales(l_max + 1);
 for (unsigned int l = 0; l <= l_max; ++l)
     ang_scales[l] = l;
 
 needlet_t * needlet = needlet_init(b_parameter, input_map.Nside());
-#line 474 "needlet_decomp.nw"
+#line 476 "needlet_decomp.nw"
 for(int j = j_min; j <= j_max; ++j)
 {
-    fprintf(stderr, "Processing j = %d\n", j);
+    fprintf(stderr, PROGRAM_NAME ": processing j = %d\n", j);
 
     arr<double> filter(l_max + 1);
     Alm<xcomplex<double> > output_alm;
     output_alm = input_alm;
 
-    fputs("    estimating the window function\n", stderr);
+    fputs(PROGRAM_NAME ":    estimating the window function\n", stderr);
     window_function(needlet, j, l_max + 1,
 		    ang_scales.begin(), filter.begin());
 
-    fputs("    filtering the alm coefficients\n", stderr);
+    fputs(PROGRAM_NAME ":    filtering the alm coefficients\n", stderr);
     output_alm.ScaleL(filter);
 
     if (! no_alm_flag)
@@ -188,18 +190,21 @@ for(int j = j_min; j <= j_max; ++j)
 	asprintf(&alm_file_name, alm_file_name_template, j);
 	write_Alm_to_fits(std::string("!") + alm_file_name,
 			  output_alm, l_max, m_max, PLANCK_FLOAT64);
-	fprintf(stderr, "File %s written to disk\n", alm_file_name);
+	fprintf(stderr, PROGRAM_NAME ":    file %s written to disk\n",
+		alm_file_name);
     }
 
     Healpix_Map<double> output_map(input_map.Nside(), RING, SET_NSIDE);
-    fputs("    converting the coefficients into a map\n", stderr);
+    fputs(PROGRAM_NAME ":    converting the coefficients into a map\n",
+	  stderr);
     alm2map(output_alm, output_map);
 
     char * map_file_name;
     asprintf(&map_file_name, map_file_name_template, j);
     write_Healpix_map_to_fits(std::string("!") + map_file_name,
                               output_map, PLANCK_FLOAT64);
-    fprintf(stderr, "File %s written to disk\n", map_file_name);
+    fprintf(stderr, PROGRAM_NAME ":    file %s written to disk\n",
+	    map_file_name);
 }
 needlet_free(needlet);
 
