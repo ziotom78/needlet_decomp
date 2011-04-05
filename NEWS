@@ -1,0 +1,14 @@
+needlet_decomp-1.0  2011-04-05
+
+  FEATURES:
+
+    * First release
+
+    * Save a_lm and maps in FITS files
+
+
+Local variables:
+mode: indented-text
+indented-tabs-mode: nil
+coding: utf-8
+End:
