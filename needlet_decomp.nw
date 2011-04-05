@@ -209,10 +209,12 @@ implementation:
 <<Header files>>
 
 <<Global definitions>>
+<<Function definitions>>
 
 int main(int argc, char ** argv)
 {
-    <<Parse the command line>>
+    <<Parse any optional command-line switch>>
+    <<Parse command-line parameters>>
     <<Read the input map and compute its spherical transformation>>
     <<Perform the analysis and save the results>>
 
@@ -270,34 +272,115 @@ std::string input_file_name;
 double b_parameter;
 int j_min;
 int j_max;
-@ %def input_file_name b_parameter j_min j_max
+const char * map_file_name_template = "needlet-map-%03d.fits";
+const char * alm_file_name_template = "needlet-alm-%03d.fits";
+int no_alm_flag = 0;  /* Whether to save a_lm maps */
+@ %def input_file_name b_parameter j_min j_max map_file_name_template alm_file_name_template no_alm_flag
 
 Such parameters are initialized by scanning the variables [[argc]]\
 and [[argv]], which contain the number of arguments provided in the
-command line and the arguments themselves:
-<<Parse the command line>>=
-if (argc != 5)
+command line and the arguments themselves. We must take into account
+the possibility that some switches, introduced by [[-]]\ or [[--]]\
+(e.g. [[--help]]), are present as well before the actual parameters.
+The code which interprets them is pretty naive: should the number of
+command-line switches grow larger, one should probably stick to GNU
+[[getopt]]\footnote{\url{http://www.gnu.org/s/libc/manual/html_node/Getopt.html}}
+or something similar.
+<<Parse any optional command-line switch>>=
+int cur_arg = 1;
+while(argv[cur_arg][0] == '-')
 {
-    fputs("Usage: needlet_decomp MAP_FILE B_PARAM MIN_J MAX_J\n", stderr);
+    if(   strcmp(argv[cur_arg], "-h") == 0
+       || strcmp(argv[cur_arg], "--help") == 0)
+    {
+	print_help(argv[0]);
+	return 0;
+    } else if (   strcmp(argv[cur_arg], "-v") == 0
+	       || strcmp(argv[cur_arg], "--version") == 0)
+    {
+	print_version();
+	return 0;
+    } else if (strcmp(argv[cur_arg], "--no-alm") == 0)
+    {
+	no_alm_flag = 1;
+    } else if (   strcmp(argv[cur_arg], "-o") == 0
+	       || strcmp(argv[cur_arg], "--output") == 0)
+    {
+	map_file_name_template = argv[++cur_arg];
+    } else if (   strcmp(argv[cur_arg], "-a") == 0
+	       || strcmp(argv[cur_arg], "--alm-output") == 0)
+    {
+	alm_file_name_template = argv[++cur_arg];
+    } else {
+	fprintf(stderr, PACKAGE_NAME ": unrecognized switch `%s'\n",
+		argv[cur_arg]);
+	return 1;
+    }
+
+    ++cur_arg;
+}
+@
+
+After having successfully parsed the command-line switches, we must
+read the actual parameters needed by the program, namely (1) the name
+of the FITS file containing the map, (2) the value of the $B$
+parameter, (3) the minimum and maximum value of $j$:
+<<Parse command-line parameters>>=
+if (argc - cur_arg != 4)
+{
+    print_help(argv[0]);
     return 1;
 }
 
-input_file_name = argv[1];
+input_file_name = argv[cur_arg++];
 
-if ((b_parameter = atof(argv[2])) <= 0.0)
+if ((b_parameter = atof(argv[cur_arg++])) <= 0.0)
 {
-    fputs("The B parameter must be a positive number\n", stderr);
+    fputs(PACKAGE_NAME ": the B parameter must be a positive number\n", stderr);
     return 1;
 }
 
-if (   (j_min = atoi(argv[3])) < 0
-    || (j_max = atoi(argv[4])) < 0)
+if (   (j_min = atoi(argv[cur_arg])) < 0
+    || (j_max = atoi(argv[cur_arg + 1])) < 0)
 {
-    fputs("The number of components must be positive\n", stderr);
+    fputs(PACKAGE_NAME ": the number of components must be positive\n", stderr);
     return 1;
 }
 @ 
 
+We still have to define [[print_help]]\ and [[print_version]]:
+<<Function definitions>>=
+void
+print_help(const char * argv0)
+{
+    fprintf(stderr, "Usage: %s [OPTIONS] MAP_FILE B_PARAM MIN_J MAX_J\n\
+\n\
+Read a FITS file containing a Healpix map and decompose it in its\n\
+needlet components from MIN_J to MAX_J. B_PARAM is a floating-point\n\
+positive value specifying the shape of the needlet. Possible\n\
+OPTIONS are:\n\
+\n\
+   -h, --help             Print this help and exit.\n\
+   -v, --version          Print version information on stdout and exit.\n\
+   --no-alm               Do not save a_lm coefficients in FITS files.\n\
+   -o, --output FILE      Specify a template for needlet map file names.\n\
+                          You can use *one* instance of `%%d' (or similar,\n\
+                          as accepted by the Posix `printf' command) as a\n\
+                          placeholder for the value of j, e.g. \n\
+                          \"needlet-%%03d.fits\".\n\
+   -a, --alm-output FILE  Specify a template for a_lm file names. The\n\
+                          same said for `-o' appies here as well.\n\
+\n\
+Report bugs to <" PACKAGE_BUGREPORT ">\n", argv0);
+}
+
+void
+print_version(void)
+{
+    fputs(PACKAGE_STRING " - compute needlet transforms of Healpix maps\n",
+	  stderr);
+}
+@ %def print_help print_version
 
 \subsection{Reading the input map}
 
@@ -403,18 +486,21 @@ for(int j = j_min; j <= j_max; ++j)
     fputs("    filtering the alm coefficients\n", stderr);
     output_alm.ScaleL(filter);
 
-    char * alm_file_name;
-    asprintf(&alm_file_name, "needlet-alm-%02d.fits", j);
-    write_Alm_to_fits(std::string("!") + alm_file_name,
-                      output_alm, l_max, m_max, PLANCK_FLOAT64);
-    fprintf(stderr, "File %s written to disk\n", alm_file_name);
+    if (! no_alm_flag)
+    {
+	char * alm_file_name;
+	asprintf(&alm_file_name, alm_file_name_template, j);
+	write_Alm_to_fits(std::string("!") + alm_file_name,
+			  output_alm, l_max, m_max, PLANCK_FLOAT64);
+	fprintf(stderr, "File %s written to disk\n", alm_file_name);
+    }
 
     Healpix_Map<double> output_map(input_map.Nside(), RING, SET_NSIDE);
     fputs("    converting the coefficients into a map\n", stderr);
     alm2map(output_alm, output_map);
 
     char * map_file_name;
-    asprintf(&map_file_name, "needlet-map-%02d.fits", j);
+    asprintf(&map_file_name, map_file_name_template, j);
     write_Healpix_map_to_fits(std::string("!") + map_file_name,
                               output_map, PLANCK_FLOAT64);
     fprintf(stderr, "File %s written to disk\n", map_file_name);
