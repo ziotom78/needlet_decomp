@@ -3,11 +3,17 @@ AM_LDFLAGS = $(GSL_LIBS) -lhealpix_cxx -lpsht -lcxxsupport -lc_utils -lfftpack
 bin_PROGRAMS = needlet_decomp test_needlet
 
 needlet_decomp_SOURCES = main.cpp needlets.hpp needlets.cpp
-# needlet_decomp_HEADERS = needlets.hpp
+needlet_decomp_DATA = needlet_decomp.pdf
+needlet_decompdir = ./
 
 test_needlet_SOURCES = test_needlet.cpp needlets.hpp needlets.cpp
-# test_needlet_HEADERS = needlets.hpp
 test_needlet_LDADD = $(DEPS_LIBS)
+
+needlet_decomp.pdf: needlet_decomp.tex needlet_decomp.bib
+	$(TEXI2PDF) --tidy -o $@ $<
+
+.nw.tex:
+	$(NOWEAVE) -n -delay -index $< | $(CPIF) $@
 
 main.$(OBJEXT): needlets.hpp
 needlets.$(OBJEXT): needlets.hpp
@@ -20,7 +26,7 @@ needlets.$(OBJEXT): needlets.hpp
 main.cpp: needlet_decomp.nw
 	$(NOTANGLE) -L -R$@ $^ | $(CPIF) $@
 
- needlets.hpp needlets.cpp: main.cpp
+needlets.hpp needlets.cpp: main.cpp
 	@if test -f $@; then \
 		touch $@; \
 	else \
