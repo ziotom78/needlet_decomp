@@ -173,15 +173,13 @@ libraries on your system:
   Sourceforge);
 \item The GNU Scientific Library (GSL).
 \end{enumerate}
-The program is compiled via a [[Makefile]], so it is not very smart in
-understanding how your system is configured. For instance, the path to
-the Healpix library is hardcoded --- you will need to fix it manually
-to suit your file system before trying to compile the program. Things
-go much better with GSL, as this library provides a [[pkg-config]]
-script that allows the Makefile to easily understand where the library
-is located. You will probably need to check the parameters passed to
-the C compiler if you are using something different from the GNU C
-Compiler (GCC) version 4.x.
+To compile the program, run the [[configure]]\ script. This script was
+created using the GNU Autotools, and it tries to detect yout system's
+configuration. Normally you should call [[configure]]\ without
+parameters, but there is an exception. If you enabled OpenMP support
+when you compiled Healpix (quite likely if you are working on a
+multi-core system), then you should run [[configure]]\ with the
+[[--with-openmp]] parameter.
 
 The program accepts a number of parameters from the command line:
 \begin{enumerate}
