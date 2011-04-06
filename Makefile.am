@@ -2,6 +2,10 @@ AM_CPPFLAGS = $(GSL_CFLAGS)
 AM_LDFLAGS = $(GSL_LIBS) -lhealpix_cxx -lpsht -lcxxsupport -lc_utils -lfftpack
 bin_PROGRAMS = needlet_decomp test_needlet
 
+IMAGES = window-function-plot.pdf
+
+EXTRA_DIST = needlet_decomp.nw needlet_decomp.bib $(IMAGES)
+
 needlet_decomp_SOURCES = main.cpp needlets.hpp needlets.cpp
 needlet_decomp_DATA = needlet_decomp.pdf
 needlet_decompdir = ./
