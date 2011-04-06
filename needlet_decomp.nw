@@ -191,15 +191,36 @@ The program accepts a number of parameters from the command line:
   to be produced as output, i.e.\ the maximum value for $j$ to be used
   in eq.~\eqref{eq:needletTransformation}.
 \end{enumerate}
+It accepts a number of switches as well; they are optional, but when
+present they must precede the parameters:
+\begin{table}[h]
+  \centering
+  \begin{tabular}{rp{10cm}}
+  \texttt{-h}, \texttt{--help} & Print a list of the command-line
+  parameters and switches and exit. \\
+  \texttt{-v}, \texttt{--version} & Print the program's name and its
+  version, then exit. \\
+  \texttt{--no-alm} & Skip the creation of the FITS files containing
+  the $a_{\ell m}$ coefficients. \\
+  \texttt{--output FILE} & Specify the file name template to be used
+  when writing needlet maps to disk. The placeholder \verb|%d| (with
+  its derivatives like \verb|%03d|, which share the same syntax as
+  the Posix [[printf]]\ command) will be substituted with the current
+  value of $j$. \\
+  \texttt{--alm-output FILE} & Specify the file name template to be used
+  when writing needlet $a_{\ell m}$ spectra to disk. As for
+  [[--output]], the user can use the placeholder \verb|%d|.  
+  \end{tabular}
+\end{table}
 
 The following example shows a typical invocation of our program:
 \begin{verbatim}
-./needlet_decomp input_map.fits 2.73 1 10
+./needlet_decomp --no-alm --output "ndl-%02d.fits" input_map.fits 2.73 1 10
 \end{verbatim}
 This code will read [[input_map.fits]] and decompose it in ten needlet
-maps ($j=1\ldots 10$) with $B = 2.73$. The maps are written in files
-numbered sequentially from 1: [[needlet-map-01.fits]],
-[[needlet-map-02.fits]] and so on.
+maps ($j=1\ldots 10$) with $B = 2.73$. The maps (but not the $a_{\ell
+  m}$ coefficients) are written in files numbered sequentially from 1:
+[[ndl-01.fits]], [[ndl-02.fits]] and so on.
 
 The skeleton of the program is the starting point for our
 implementation:
