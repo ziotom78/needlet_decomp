@@ -33,7 +33,8 @@ components:
 It is likely that you can install both Noweb and GSL using your
 favourite package manager (e.g. `apt-get` on Ubuntu Linux).
 
-After you installed the dependencies, edit the path to the Healpix
-library in the `Makefile` and start `make`. If you are lucky, you
-shall get the program `needlet_decomp` as well as its documentation in
-`needlet_decomp.pdf`.
+After you installed the dependencies, run `configure` and then `make`. Note that
+if you are using a version of Healpix that has been compiled with
+OpenMP support enabled (chances are: yes, you are), then you must invoke
+`configure` with the `--with-openmp` flag. Call `configure --help` for
+more options.
