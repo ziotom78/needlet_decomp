@@ -209,7 +209,11 @@ present they must precede the parameters:
   value of $j$. \\
   \texttt{--alm-output FILE} & Specify the file name template to be used
   when writing needlet $a_{\ell m}$ spectra to disk. As for
-  [[--output]], the user can use the placeholder \verb|%d|.  
+  [[--output]], the user can use the placeholder \verb|%d|. \\
+  \texttt{--mask FILE} & Specify the name of a FITS file containing a
+  mask to be applied to the data. All those pixels in the input map
+  that match zero pixels in the mask will be set to zero before
+  computing the needlet transform.
   \end{tabular}
 \end{table}
 
@@ -301,8 +305,9 @@ int j_min;
 int j_max;
 const char * map_file_name_template = "needlet-map-%03d.fits";
 const char * alm_file_name_template = "needlet-alm-%03d.fits";
+const char * mask_file_name = NULL;
 int no_alm_flag = 0;  /* Whether to save a_lm maps */
-@ %def input_file_name b_parameter j_min j_max map_file_name_template alm_file_name_template no_alm_flag
+@ %def input_file_name b_parameter j_min j_max map_file_name_template alm_file_name_template mask_file_name no_alm_flag
 
 Such parameters are initialized by scanning the variables [[argc]]\
 and [[argv]], which contain the number of arguments provided in the
@@ -310,8 +315,9 @@ command line and the arguments themselves. We must take into account
 the possibility that some switches, introduced by [[-]]\ or [[--]]\
 (e.g. [[--help]]), are present as well before the actual parameters.
 The code which interprets them is pretty naive: should the number of
-command-line switches grow larger, one should probably stick to GNU
-[[getopt]]\footnote{\url{http://www.gnu.org/s/libc/manual/html_node/Getopt.html}}
+command-line switches grow larger, we would probably convert the code
+to use the GNU [[getopt]]
+library\footnote{\url{http://www.gnu.org/s/libc/manual/html_node/Getopt.html}},
 or something similar.
 <<Parse any optional command-line switch>>=
 int cur_arg = 1;
@@ -338,6 +344,10 @@ while(argv[cur_arg][0] == '-')
 	       || strcmp(argv[cur_arg], "--alm-output") == 0)
     {
 	alm_file_name_template = argv[++cur_arg];
+    } else if (   strcmp(argv[cur_arg], "-m") == 0
+	       || strcmp(argv[cur_arg], "--mask") == 0)
+    {
+	mask_file_name = argv[++cur_arg];
     } else {
 	fprintf(stderr, PROGRAM_NAME ": unrecognized switch `%s'\n",
 		argv[cur_arg]);
@@ -397,6 +407,10 @@ OPTIONS are:\n\
                           \"needlet-%%03d.fits\".\n\
    -a, --alm-output FILE  Specify a template for a_lm file names. The\n\
                           same said for `-o' appies here as well.\n\
+   -m, --mask FILE        Specify the name of a FITS file that contains\n\
+                          a mask to be applied to the input map. All the\n\
+                          pixels in the input map that match a zero pixel in\n\
+                          the mask shall be set to zero before the analysis.\n\
 \n\
 Report bugs to <" PACKAGE_BUGREPORT ">\n", argv0);
 }
@@ -408,20 +422,21 @@ print_version(void)
 }
 @ %def print_help print_version
 
+
 \subsection{Reading the input map}
 
 To read the Healpix map I use the [[read_Healpix_map_from_fits]]\
-function, which is provided by the [[Healpix_cxx]] package.
+function, which is provided by the [[Healpix_cxx]]\ package.
 Unfortunately the documentation for the library does not go very deep
 in details and does not explain how to catch error conditions.
 Therefore, the code does not perform any error checking here. Since we
 are going to do a spherical transformation on the map, and Healpix
 requires maps to be stored using ring order for this transformation to
 be applied, we apply [[swap_scheme]] if needed. (Note that the default
-output of Madam 3.6 and above is to write map in nested order.) We set
-to zero any pixel whose value is less than $1.6\times 10^{30}$, as
-Healpix uses a similar value to flag pixels not to be accounted in
-analyses.
+output of Madam 3.6 and above is to write map in nested order.) We
+need also to take care of bad pixels and of the presence of a mask
+(through the [[--mask]]\ command-line switch), but we leave such
+discussion to sect.~\ref{sec:maskBuilding}:
 <<Read the input map and compute its spherical transformation>>=
 Healpix_Map<double> input_map;
 fprintf(stderr, PROGRAM_NAME ": reading map %s\n", input_file_name.c_str());
@@ -433,21 +448,8 @@ if(input_map.Scheme() != RING)
 }
 fputs(PROGRAM_NAME ": map read into memory\n", stderr);
 
-unsigned long num_of_flagged_pixels = 0;
-arr<double> map_pixels = input_map.Map();
-for (unsigned long i = 0; i < map_pixels.size(); ++i)
-{
-    if (map_pixels[i] < -1.6e+30 || ! gsl_finite(map_pixels[i]))
-    {
-	map_pixels[i] = 0.0;
-	num_of_flagged_pixels++;
-    }
-}
-if (num_of_flagged_pixels > 0)
-    fprintf(stderr, PROGRAM_NAME ": %lu pixels were flagged and set to zero\n",
-		 num_of_flagged_pixels);
-
-input_map.Set(map_pixels, input_map.Scheme());
+<<Build a mask>>
+<<Mask [[input_map]]>>
 @ %def input_map
 
 To calculate the $a_{\ell m}$ coefficients we use [[map2alm]]. One of
@@ -470,6 +472,64 @@ map2alm_iter(input_map, input_alm, 5, ring_weights);
 fputs("...done\n", stderr);
 @ %def input_alm
 
+
+\subsection{Building a mask}
+\label{sec:maskBuilding}
+
+It is possible to specify a mask to be applied to the input map before
+computing its needlet transform. It is seldom necessary to use masks
+for doing needlet analysis, as the localisation properties of this
+kind of transform makes the presence of a mask of little significance
+(apart from fringles that appear at the borders of the mask,
+expecially for low values of $j$). A possible application of masks is
+when you plan to compare two needlet maps and you want to be sure that
+they cover the same portion of the sky: in this case, applying a mask
+will help in the comparison.
+
+As above we use here [[read_Healpix_map_from_fits]]\ to read the map,
+and we do not check for errors. If the user has not specified a mask
+(via the [[--mask]]\ command-line flag), a mask containing only ones
+will be created in memory:
+<<Build a mask>>=
+Healpix_Map<int> mask;
+if (mask_file_name != NULL)
+{
+    fprintf(stderr, PROGRAM_NAME ": reading mask map %s\n", mask_file_name);
+    read_Healpix_map_from_fits(mask_file_name, mask);
+    if(mask.Scheme() != RING)
+    {
+	fputs(PROGRAM_NAME ": converting mask into RING scheme\n", stderr);
+	mask.swap_scheme();
+    }
+} else
+{
+    mask.SetNside(input_map.Nside(), input_map.Scheme());
+    mask.fill(1);
+}
+@ %def mask
+
+Once the mask has been built, we set to zero any pixel in
+[[input_map]]\ which is either (1) not a number, (2) flagged as
+``bad'' or (3) whose corresponding pixel in [[mask]]\ is [[false]]:
+<<Mask [[input_map]]>>=
+unsigned long num_of_flagged_pixels = 0;
+arr<double> map_pixels = input_map.Map();
+for (unsigned long i = 0; i < map_pixels.size(); ++i)
+{
+    if (map_pixels[i] < -1.6e+30
+        || (! gsl_finite(map_pixels[i]))
+        || (! mask[i]))
+    {
+	map_pixels[i] = 0.0;
+	num_of_flagged_pixels++;
+    }
+}
+if (num_of_flagged_pixels > 0)
+    fprintf(stderr, PROGRAM_NAME ": %lu pixels were flagged and set to zero\n",
+		 num_of_flagged_pixels);
+
+input_map.Set(map_pixels, input_map.Scheme());
+@ 
 
 \subsection{Application of the needlet transformation}
 
