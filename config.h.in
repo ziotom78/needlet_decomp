@@ -12,6 +12,9 @@
 /* Define to 1 if you have the `fftpack' library (-lfftpack). */
 #undef HAVE_LIBFFTPACK
 
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
 /* Define to 1 if you have the `psht' library (-lpsht). */
 #undef HAVE_LIBPSHT
 

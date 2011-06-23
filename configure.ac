@@ -40,6 +40,11 @@ PKG_CHECK_MODULES([GSL], [gsl])
 AC_SUBST([GSL_CFLAGS])
 AC_SUBST([GSL_LIBS])
 
+AC_CHECK_LIB([m],
+             [sin],
+	     [],
+	     [AC_MSG_ERROR([unable to find the standard C math library])])
+
 AC_CHECK_LIB([cfitsio],
              [ffpcl],
 	     [],
