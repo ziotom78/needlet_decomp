@@ -259,6 +259,7 @@ the standard C++ library and are provided by the compiler:
 <<Header files>>=
 #include <stdlib.h>   // For `atoi' and `atof'
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <vector>
 @ 
