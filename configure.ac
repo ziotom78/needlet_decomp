@@ -60,8 +60,8 @@ if [[ "x$HEALPIX_TARGET" == "x" ]]; then
     AC_MSG_ERROR([environment variable [$HEALPIX_TARGET] undefined, have you installed Healpix?])
 fi
 
-CPPFLAGS="-I$HEALPIX/src/cxx/$HEALPIX_TARGET/include"
-LDFLAGS="-L$HEALPIX/src/cxx/$HEALPIX_TARGET/lib"
+CPPFLAGS="$CPPFLAGS -I$HEALPIX/src/cxx/$HEALPIX_TARGET/include"
+LDFLAGS="$LDFLAGS -L$HEALPIX/src/cxx/$HEALPIX_TARGET/lib"
 
 # All the following libraries are part of the Healpix 2.20a+ bundle
 
