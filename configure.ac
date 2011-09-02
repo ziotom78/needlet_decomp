@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.66])
+AC_PREREQ([2.36])
 AC_INIT([needlet_decomp], [1.0], [maurizio.tomasi@unimi.it])
 
 # We use `foreign' because we do not provide a ChangeLog file
@@ -36,7 +36,6 @@ AC_PATH_PROG(ASY, [asy])
 
 AC_LIBOBJ(asprintf)
 
-PKG_CHECK_MODULES([GSL], [gsl])
 AC_SUBST([GSL_CFLAGS])
 AC_SUBST([GSL_LIBS])
 
@@ -44,6 +43,9 @@ AC_CHECK_LIB([m],
              [sin],
 	     [],
 	     [AC_MSG_ERROR([unable to find the standard C math library])])
+
+AC_CHECK_LIB(gslcblas,main)
+AC_CHECK_LIB(gsl,main)
 
 AC_CHECK_LIB([cfitsio],
              [ffpcl],
