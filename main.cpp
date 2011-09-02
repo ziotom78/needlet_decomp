@@ -78,29 +78,29 @@ int main(int argc, char ** argv)
 int cur_arg = 1;
 while(argv[cur_arg][0] == '-')
 {
-    if(   strcmp(argv[cur_arg], "-h") == 0
-       || strcmp(argv[cur_arg], "--help") == 0)
+    if(   std::strcmp(argv[cur_arg], "-h") == 0
+       || std::strcmp(argv[cur_arg], "--help") == 0)
     {
 	print_help(argv[0]);
 	return 0;
-    } else if (   strcmp(argv[cur_arg], "-v") == 0
-	       || strcmp(argv[cur_arg], "--version") == 0)
+    } else if (   std::strcmp(argv[cur_arg], "-v") == 0
+	       || std::strcmp(argv[cur_arg], "--version") == 0)
     {
 	print_version();
 	return 0;
-    } else if (strcmp(argv[cur_arg], "--no-alm") == 0)
+    } else if (std::strcmp(argv[cur_arg], "--no-alm") == 0)
     {
 	no_alm_flag = 1;
-    } else if (   strcmp(argv[cur_arg], "-o") == 0
-	       || strcmp(argv[cur_arg], "--output") == 0)
+    } else if (   std::strcmp(argv[cur_arg], "-o") == 0
+	       || std::strcmp(argv[cur_arg], "--output") == 0)
     {
 	map_file_name_template = argv[++cur_arg];
-    } else if (   strcmp(argv[cur_arg], "-a") == 0
-	       || strcmp(argv[cur_arg], "--alm-output") == 0)
+    } else if (   std::strcmp(argv[cur_arg], "-a") == 0
+	       || std::strcmp(argv[cur_arg], "--alm-output") == 0)
     {
 	alm_file_name_template = argv[++cur_arg];
-    } else if (   strcmp(argv[cur_arg], "-m") == 0
-	       || strcmp(argv[cur_arg], "--mask") == 0)
+    } else if (   std::strcmp(argv[cur_arg], "-m") == 0
+	       || std::strcmp(argv[cur_arg], "--mask") == 0)
     {
 	mask_file_name = argv[++cur_arg];
     } else {
